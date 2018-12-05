@@ -35,7 +35,7 @@
  *   (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
  *   OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
- * iptables.c - an example using onvm. Forwards packets to a DST NF.
+ * forward.c - an example using onvm. Forwards packets to a DST NF.
  ********************************************************************/
 
 #include <unistd.h>
@@ -64,38 +64,8 @@ struct onvm_nf_info *nf_info;
 /* number of package between each print */
 static uint32_t print_delay = 1000000;
 
-/*forward nf*/
+
 static uint32_t destination;
-
-/* packet print flag */
-static uint8_t log_flag=0; 
-
-/* host IP destination*/
-static uint32_t host_ip=318767115; //(11.0.0.19)
-
-/*raw table: ip protol determine flag */
-struct raw_protocol_flag{
-	uint8_t protocol;
-	uint8_t flag;
-};
-
-uint8_t raw_count=3;
-struct raw_protocol_flag raw_ptl_flag[3];
-
-static void 
-init_raw(void){
-	//raw_ptl_flag=(struct raw_protocol_flag* )rte_malloc("raw_ptl_flag", sizeof(struct raw_protocol_flag) * raw_count, 0);
-	//raw_ptl_flag=new raw_protocol_flag[raw_count];
-	/*if(raw_ptl_flag==NULL){
-		 rte_exit(EXIT_FAILURE, "Malloc failed, can't allocate raw_ptl_flag array\n");
-	}*/
-	raw_ptl_flag[0].protocol=17; //udp
-	raw_ptl_flag[0].flag=1;
-	raw_ptl_flag[1].protocol=6; //tcp
-	raw_ptl_flag[1].flag=1;
-	raw_ptl_flag[2].protocol=0; //other
-	raw_ptl_flag[2].flag=0;
-}
 
 /*
  * Print a usage message
@@ -172,91 +142,31 @@ do_stats_display(struct rte_mbuf* pkt) {
         printf("\n\n");
 
         ip = onvm_pkt_ipv4_hdr(pkt);
-        if (ip != NULL&&log_flag==1) {
+        if (ip != NULL) {
                 onvm_pkt_print(pkt);
         } else {
                 printf("No IP4 header found\n");
         }
 }
 
-static void 
-raw(struct rte_mbuf* pkt){
-
-	//printf("come to raw\n");
-	struct ipv4_hdr* ip;
-	ip=onvm_pkt_ipv4_hdr(pkt);
-	uint8_t protocol=ip->next_proto_id;
-	//printf("protocol:%d\n",protocol);
-	int i; 
-	for(i=0;i<raw_count;i++)
-	{
-		if(protocol==raw_ptl_flag[i].protocol)
-		{
-			//printf("match protocol\n");
-			log_flag=raw_ptl_flag[i].flag;
-			break;
-		}
-
-	}
-
-}
-
-/*
-static void
-mangle(struct rte_mbuf* pkt){
-
-}
-
-static void
-nat(struct rte_mbuf* pkt){
-
-}
-
-static void
-filter(struct rte_mbuf* pkt){
-
-}
-*/
-
 static int
 packet_handler(struct rte_mbuf* pkt, struct onvm_pkt_meta* meta) {
 
 	struct ipv4_hdr* ip;
 
-    static uint32_t counter = 0;
-    if (++counter == print_delay) {
-        do_stats_display(pkt);
-        counter = 0;
-    }
-	
-	//onvm_pkt_print(pkt);
+        static uint32_t counter = 0;
+        if (++counter == print_delay) {
+                do_stats_display(pkt);
+                counter = 0;
+        }
+	onvm_pkt_print(pkt);
 	ip=onvm_pkt_ipv4_hdr(pkt);
+	if(ip!=NULL)
+		printf("src ip:%d\n",ip->src_addr);
 
-	if(ip!=NULL){
-
-		//printf("src ip:%d\n",ip->src_addr);
-		if (ip->src_addr == host_ip){ // host send packet
-			
-			/*output chain*/
-			//printf("output chain\n");
-			/*postrouting chain*/
-		}
-		else { // host receive packet
-			
-			//printf("prerouting chain\n");
-			/*prerouting chain*/
-
-			// raw table
-			raw(pkt);
-		}
-
-
-	}
-		
-
-    meta->action = ONVM_NF_ACTION_TONF;
-    meta->destination = destination;
-    return 0;
+        meta->action = ONVM_NF_ACTION_TONF;
+        meta->destination = destination;
+        return 0;
 }
 
 
@@ -274,9 +184,8 @@ int main(int argc, char *argv[]) {
                 onvm_nflib_stop();
                 rte_exit(EXIT_FAILURE, "Invalid command-line arguments\n");
         }
-        init_raw();
+
         onvm_nflib_run(nf_info, &packet_handler);
         printf("If we reach here, program is ending\n");
         return 0;
 }
-
