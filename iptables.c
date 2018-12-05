@@ -56,7 +56,7 @@
 #include "onvm_nflib.h"
 #include "onvm_pkt_helper.h"
 
-#define NF_TAG "simple_forward"
+#define NF_TAG "iptables"
 
 /* Struct that contains information about this NF */
 struct onvm_nf_info *nf_info;
@@ -159,9 +159,10 @@ packet_handler(struct rte_mbuf* pkt, struct onvm_pkt_meta* meta) {
                 do_stats_display(pkt);
                 counter = 0;
         }
-
+	onvm_pkt_print(pkt);
 	ip=onvm_pkt_ipv4_hdr(pkt);
-	printf("src ip:%d\n",ip->srcaddr);
+	if(ip!=NULL)
+		printf("src ip:%d\n",ip->src_addr);
 
         meta->action = ONVM_NF_ACTION_TONF;
         meta->destination = destination;
